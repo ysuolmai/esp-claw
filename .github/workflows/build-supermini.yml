@@ -30,7 +30,7 @@ jobs:
           pip install esp-bmgr-assist
           rm -rf build sdkconfig sdkconfig.old managed_components dependencies.lock
           idf.py bmgr -c ./boards -b esp32_S3_Super_Mini
-          grep -E 'CONFIG_(ESPTOOLPY_FLASHSIZE_4MB|PARTITION_TABLE_CUSTOM_FILENAME|SPIRAM_MODE_QUAD|APP_CLAW_LUA_MODULE_LVGL|APP_CLAW_CAP_MCP_CLIENT|BT_ENABLED)=' sdkconfig || true
+          grep -E 'CONFIG_(ESPTOOLPY_FLASHSIZE_4MB|PARTITION_TABLE_CUSTOM_FILENAME|SPIRAM_MODE_QUAD|APP_CLAW_CAP_IM_TG|APP_CLAW_LUA_MODULE_LVGL|APP_CLAW_CAP_MCP_CLIENT|BT_ENABLED)=' sdkconfig || true
           idf.py build
 
       - name: Create merged firmware image
