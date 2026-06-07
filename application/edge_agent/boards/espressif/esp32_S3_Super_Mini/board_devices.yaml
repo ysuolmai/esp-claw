@@ -1,0 +1,25 @@
+version: 1.0.0
+# Devices for ESP32-S3 SuperMini / ESP32-S3FH4R2.
+devices:
+  - name: led_strip
+    chip: ws2812
+    type: custom
+    version: default
+    init_skip: true
+    dependencies:
+      espressif/led_strip:
+        version: "^3.0"
+        public: true
+    config:
+      max_leds: 1
+    peripherals:
+      - name: rmt_tx
+
+  - name: buttons
+    chip: gpio_button
+    type: custom
+    version: default
+    init_skip: true
+    config:
+      boot_gpio_num: 0
+      active_level: 0

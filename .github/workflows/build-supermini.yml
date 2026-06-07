@@ -1,0 +1,52 @@
+name: Build ESP32-S3 SuperMini
+
+on:
+  push:
+    branches:
+      - esp32-s3-supermini
+  pull_request:
+    paths:
+      - ".github/workflows/build-supermini.yml"
+      - "application/edge_agent/**"
+      - "components/**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:release-v5.5
+    defaults:
+      run:
+        shell: bash
+        working-directory: application/edge_agent
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build ESP32-S3 SuperMini firmware
+        run: |
+          . /opt/esp/idf/export.sh
+          pip install esp-bmgr-assist
+          idf.py set-target esp32s3
+          idf.py bmgr -c ./boards -b esp32_S3_Super_Mini
+          idf.py build
+
+      - name: Show image sizes
+        if: always()
+        run: |
+          . /opt/esp/idf/export.sh
+          python $IDF_PATH/tools/idf_size.py build/edge_agent.elf || true
+          ls -lh build/*.bin build/partition_table/*.bin || true
+
+      - name: Upload firmware artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-s3-supermini-firmware
+          path: |
+            application/edge_agent/build/*.bin
+            application/edge_agent/build/partition_table/*.bin
+            application/edge_agent/build/bootloader/*.bin
+            application/edge_agent/build/flasher_args.json
+            application/edge_agent/build/project_description.json

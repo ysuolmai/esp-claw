@@ -14,9 +14,17 @@ dependencies:
 
   espressif2022/esp_emote_expression:
     version: "^1.0.0"
+    rules:
+      - if: >-
+          $CONFIG{ESP_BOARD_DEV_DISPLAY_LCD_SUPPORT} == True &&
+          $CONFIG{APP_CLAW_ENABLE_EMOTE} == True
 
   espressif2022/esp_emote_gfx:
     version: "3.0.2"
+    rules:
+      - if: >-
+          $CONFIG{ESP_BOARD_DEV_DISPLAY_LCD_SUPPORT} == True &&
+          $CONFIG{APP_CLAW_ENABLE_EMOTE} == True
 
   app_claw:
     path: ../../../components/common/app_claw
@@ -33,7 +41,9 @@ dependencies:
   emote:
     path: ../../../components/common/emote
     rules:
-      - if: $CONFIG{ESP_BOARD_DEV_DISPLAY_LCD_SUPPORT} == True
+      - if: >-
+          $CONFIG{ESP_BOARD_DEV_DISPLAY_LCD_SUPPORT} == True &&
+          $CONFIG{APP_CLAW_ENABLE_EMOTE} == True
 
   http_reuse:
     path: ../../../components/common/http_reuse

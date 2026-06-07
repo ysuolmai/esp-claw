@@ -1,0 +1,5 @@
+board: esp32_S3_Super_Mini
+chip: esp32s3
+version: 1.0.0
+description: "ESP32-S3 SuperMini / ESP32-S3FH4R2 with 4 MB flash and 2 MB Quad PSRAM"
+manufacturer: "Generic"
