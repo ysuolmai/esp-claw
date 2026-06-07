@@ -37,6 +37,10 @@ menu "App Claw Config"
 
     menu "App Claw Capabilities"
 
+        config APP_CLAW_CAP_IM_PLATFORM
+            bool
+            default n
+
         config APP_CLAW_CAP_FILES
             bool "Enable files capability"
             default y
@@ -47,6 +51,7 @@ menu "App Claw Config"
         config APP_CLAW_CAP_IM_QQ
             bool "Enable QQ capability"
             default y
+            select APP_CLAW_CAP_IM_PLATFORM
             help
                 Enable the QQ capability and keep app_claw's direct dependency
                 on cap_im_qq.
@@ -54,6 +59,7 @@ menu "App Claw Config"
         config APP_CLAW_CAP_IM_FEISHU
             bool "Enable Feishu capability"
             default y
+            select APP_CLAW_CAP_IM_PLATFORM
             help
                 Enable the Feishu capability and keep app_claw's direct dependency
                 on cap_im_feishu.
@@ -61,6 +67,7 @@ menu "App Claw Config"
         config APP_CLAW_CAP_IM_TG
             bool "Enable Telegram capability"
             default y
+            select APP_CLAW_CAP_IM_PLATFORM
             help
                 Enable the Telegram capability and keep app_claw's direct dependency
                 on cap_im_tg.
@@ -68,6 +75,7 @@ menu "App Claw Config"
         config APP_CLAW_CAP_IM_WECHAT
             bool "Enable WeChat capability"
             default y
+            select APP_CLAW_CAP_IM_PLATFORM
             help
                 Enable the WeChat capability and keep app_claw's direct dependency
                 on cap_im_wechat.
