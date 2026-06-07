@@ -46,7 +46,7 @@ jobs:
             0x0 build/bootloader/bootloader.bin \
             0x9000 build/partition_table/partition-table.bin \
             0x20000 build/edge_agent.bin \
-            0x340000 build/system.bin \
+            0x300000 build/system.bin \
             0x3c0000 build/storage.bin
           ls -lh build/merged-binary.bin
 
@@ -60,7 +60,7 @@ jobs:
           upgrade = build / "upgrade-no-settings.bin"
           app = (build / "edge_agent.bin").read_bytes()
           system = (build / "system.bin").read_bytes()
-          system_offset = 0x340000 - 0x20000
+          system_offset = 0x300000 - 0x20000
           system_end = system_offset + len(system)
           image = bytearray(b"\xff" * system_end)
           image[0:len(app)] = app
