@@ -32,7 +32,7 @@ jobs:
           pip install esp-bmgr-assist
           rm -rf build sdkconfig sdkconfig.old managed_components dependencies.lock
           idf.py bmgr -c ./boards -b esp32_S3_Super_Mini
-          grep -E 'CONFIG_(ESPTOOLPY_FLASHSIZE_4MB|PARTITION_TABLE_CUSTOM_FILENAME|SPIRAM_MODE_QUAD|APP_CLAW_CAP_IM_PLATFORM|APP_CLAW_CAP_IM_TG|APP_CLAW_LUA_MODULE_LVGL|APP_CLAW_CAP_MCP_CLIENT|BT_ENABLED)=' sdkconfig || true
+          grep -E 'CONFIG_(ESPTOOLPY_FLASHSIZE_4MB|PARTITION_TABLE_CUSTOM_FILENAME|SPIRAM_MODE_QUAD|APP_CLAW_CAP_(IM_PLATFORM|IM_TG|MCP_CLIENT|SCHEDULER|LLM_INSPECT|WEB_SEARCH)|APP_CLAW_LUA_DRIVER_(MCPWM|PCNT|TOUCH)|APP_CLAW_LUA_MODULE_(ENVIRONMENTAL_SENSOR|FUEL_GAUGE|IMU|IR|KNOB|MAGNETOMETER|LVGL)|BT_ENABLED)=' sdkconfig || true
           idf.py build
 
       - name: Create merged firmware image
@@ -49,6 +49,48 @@ jobs:
             0x340000 build/system.bin \
             0x3c0000 build/storage.bin
           ls -lh build/merged-binary.bin
+
+      - name: Create no-settings upgrade image
+        run: |
+          . /opt/esp/idf/export.sh
+          python - <<'PY'
+          from pathlib import Path
+
+          build = Path("build")
+          upgrade = build / "upgrade-no-settings.bin"
+          app = (build / "edge_agent.bin").read_bytes()
+          system = (build / "system.bin").read_bytes()
+          system_offset = 0x340000 - 0x20000
+          system_end = system_offset + len(system)
+          image = bytearray(b"\xff" * system_end)
+          image[0:len(app)] = app
+          image[system_offset:system_end] = system
+          upgrade.write_bytes(image)
+
+          pre_app_gap = build / "pre-app-gap-blank.bin"
+          pre_app_gap.write_bytes(b"\xff" * 0x10000)
+
+          command = (
+              "python -m esptool --chip esp32s3 -b 460800 "
+              "--before default_reset --after hard_reset write_flash "
+              "--flash_mode dio --flash_size 4MB --flash_freq 80m "
+              "0x0 bootloader/bootloader.bin "
+              "0x9000 partition_table/partition-table.bin "
+              "0x10000 pre-app-gap-blank.bin "
+              "0x20000 upgrade-no-settings.bin\n"
+          )
+          (build / "upgrade-no-settings-command.txt").write_text(command, encoding="utf-8")
+          (build / "upgrade-no-settings-readme.txt").write_text(
+              "Flash these files from the build directory to update firmware and system resources "
+              "without erasing the existing NVS settings area at 0xA000-0xFFFF or the writable "
+              "storage partition at 0x3C0000. The bootloader and partition table are updated, "
+              "but they do not overlap the preserved settings region. The pre-app-gap-blank.bin "
+              "file clears 0x10000-0x1FFFF, covering the new NVS extension area plus phy_init "
+              "and reserved pre-app space before the new partition table starts using it.\n\n" + command,
+              encoding="utf-8",
+          )
+          PY
+          ls -lh build/upgrade-no-settings.bin build/pre-app-gap-blank.bin
 
       - name: Show image sizes
         if: always()
@@ -68,3 +110,16 @@ jobs:
             application/edge_agent/build/bootloader/*.bin
             application/edge_agent/build/flasher_args.json
             application/edge_agent/build/project_description.json
+
+      - name: Upload no-settings upgrade artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-s3-supermini-upgrade-no-settings
+          path: |
+            application/edge_agent/build/upgrade-no-settings.bin
+            application/edge_agent/build/pre-app-gap-blank.bin
+            application/edge_agent/build/upgrade-no-settings-command.txt
+            application/edge_agent/build/upgrade-no-settings-readme.txt
+            application/edge_agent/build/bootloader/bootloader.bin
+            application/edge_agent/build/partition_table/partition-table.bin
