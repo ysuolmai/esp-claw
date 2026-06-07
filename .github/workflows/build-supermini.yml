@@ -33,6 +33,21 @@ jobs:
           grep -E 'CONFIG_(ESPTOOLPY_FLASHSIZE_4MB|PARTITION_TABLE_CUSTOM_FILENAME|SPIRAM_MODE_QUAD|APP_CLAW_LUA_MODULE_LVGL|APP_CLAW_CAP_MCP_CLIENT|BT_ENABLED)=' sdkconfig || true
           idf.py build
 
+      - name: Create merged firmware image
+        run: |
+          . /opt/esp/idf/export.sh
+          esptool.py --chip esp32s3 merge_bin \
+            -o build/merged-binary.bin \
+            --flash_mode dio \
+            --flash_freq 80m \
+            --flash_size 4MB \
+            0x0 build/bootloader/bootloader.bin \
+            0x9000 build/partition_table/partition-table.bin \
+            0x20000 build/edge_agent.bin \
+            0x340000 build/system.bin \
+            0x3c0000 build/storage.bin
+          ls -lh build/merged-binary.bin
+
       - name: Show image sizes
         if: always()
         run: |
