@@ -3,6 +3,8 @@ name: Build ESP32-S3 SuperMini
 on:
   push:
     branches:
+      - main
+      - master
       - esp32-s3-supermini
   pull_request:
     paths:
