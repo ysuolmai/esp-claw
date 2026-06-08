@@ -19,3 +19,47 @@ peripherals:
         io_od_mode: false
         allow_pd: false
         init_level: false
+
+  # INMP441 microphone (I2S STD RX): WS=GPIO4, SCK/BCLK=GPIO5, SD=GPIO6.
+  - name: i2s_audio_in
+    type: i2s
+    role: master
+    format: std-in
+    config:
+      port: 0
+      sample_rate_hz: 16000
+      clk_src: I2S_CLK_SRC_DEFAULT
+      mclk_multiple: 256
+      data_bit_width: 16
+      slot_bit_width: I2S_SLOT_BIT_WIDTH_AUTO
+      slot_mode: I2S_SLOT_MODE_MONO
+      slot_mask: I2S_STD_SLOT_LEFT
+      ws_width: 16
+      pins:
+        mclk: -1
+        bclk: 5
+        ws: 4
+        dout: -1
+        din: 6
+
+  # MAX98357A speaker amplifier (I2S STD TX): DIN=GPIO11, BCLK=GPIO12, LRC=GPIO13.
+  - name: i2s_audio_out
+    type: i2s
+    role: master
+    format: std-out
+    config:
+      port: 1
+      sample_rate_hz: 16000
+      clk_src: I2S_CLK_SRC_DEFAULT
+      mclk_multiple: 256
+      data_bit_width: 16
+      slot_bit_width: I2S_SLOT_BIT_WIDTH_AUTO
+      slot_mode: I2S_SLOT_MODE_MONO
+      slot_mask: I2S_STD_SLOT_LEFT
+      ws_width: 16
+      pins:
+        mclk: -1
+        bclk: 12
+        ws: 13
+        dout: 11
+        din: -1

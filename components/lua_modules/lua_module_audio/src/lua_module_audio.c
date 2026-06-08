@@ -59,12 +59,18 @@ int luaopen_audio(lua_State *L)
         {"read_spectrum", lua_audio_analyzer_read_spectrum},
         {NULL, NULL},
     };
+    static const luaL_Reg voice_stream_methods[] = {
+        {"close", lua_audio_voice_stream_close},
+        {"run",   lua_audio_voice_stream_run},
+        {NULL, NULL},
+    };
     static const luaL_Reg funcs[] = {
-        {"new_output", lua_audio_new_output},
-        {"new_input",  lua_audio_new_input},
-        {"player",     lua_audio_player_new},
-        {"recorder",   lua_audio_recorder_new},
-        {"analyzer",   lua_audio_analyzer_new},
+        {"new_output",   lua_audio_new_output},
+        {"new_input",    lua_audio_new_input},
+        {"player",       lua_audio_player_new},
+        {"recorder",     lua_audio_recorder_new},
+        {"analyzer",     lua_audio_analyzer_new},
+        {"voice_stream", lua_audio_voice_stream_new},
         {NULL, NULL},
     };
 
@@ -73,6 +79,7 @@ int luaopen_audio(lua_State *L)
     lua_audio_create_meta(L, AUDIO_PLAYER_META, player_methods, lua_audio_player_gc);
     lua_audio_create_meta(L, AUDIO_RECORDER_META, recorder_methods, lua_audio_recorder_gc);
     lua_audio_create_meta(L, AUDIO_ANALYZER_META, analyzer_methods, lua_audio_analyzer_gc);
+    lua_audio_create_meta(L, AUDIO_VOICE_STREAM_META, voice_stream_methods, lua_audio_voice_stream_gc);
 
     lua_newtable(L);
     luaL_setfuncs(L, funcs, 0);

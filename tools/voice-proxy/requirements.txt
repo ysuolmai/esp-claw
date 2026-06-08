@@ -1,0 +1,6 @@
+fastapi==0.115.12
+uvicorn[standard]==0.34.3
+numpy==2.2.6
+opuslib==3.0.1
+httpx==0.28.1
+sherpa-onnx==1.13.2

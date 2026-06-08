@@ -45,6 +45,7 @@
 #define AUDIO_PLAYER_META             "lua_audio_player"
 #define AUDIO_RECORDER_META           "lua_audio_recorder"
 #define AUDIO_ANALYZER_META           "lua_audio_analyzer"
+#define AUDIO_VOICE_STREAM_META       "lua_audio_voice_stream"
 #define AUDIO_SPECTRUM_MIN_FFT        64
 #define AUDIO_SPECTRUM_MAX_FFT        4096
 #define AUDIO_SPECTRUM_DEF_FFT        512
@@ -184,3 +185,8 @@ int lua_audio_analyzer_close(lua_State *L);
 int lua_audio_analyzer_gc(lua_State *L);
 int lua_audio_analyzer_read_level(lua_State *L);
 int lua_audio_analyzer_read_spectrum(lua_State *L);
+
+int lua_audio_voice_stream_new(lua_State *L);
+int lua_audio_voice_stream_close(lua_State *L);
+int lua_audio_voice_stream_gc(lua_State *L);
+int lua_audio_voice_stream_run(lua_State *L);

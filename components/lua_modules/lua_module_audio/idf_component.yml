@@ -5,3 +5,4 @@ dependencies:
   espressif/esp_audio_codec: "*"
   espressif/esp_audio_simple_player: ^0.9.6
   espressif/esp_asrc: ^1.0.0
+  espressif/esp_websocket_client: "^1.4.0"

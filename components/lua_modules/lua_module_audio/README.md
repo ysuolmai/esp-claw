@@ -12,6 +12,7 @@ wraps codec devices and audio processing helpers.
 - `audio.player({ output = output })` creates a file, HTTP, or HTTPS player bound to one output object
 - `audio.recorder({ input = input })` creates a WAV/AAC recorder bound to one input object
 - `audio.analyzer({ input = input })` creates a level and spectrum analyzer bound to one input object
+- `audio.voice_stream({ input = input, output = output, uri = "ws://..." })` streams 16 kHz mono Opus over WebSocket
 - Close player, recorder, and analyzer objects before closing their input or output device
 
 ## Device descriptors
@@ -128,6 +129,43 @@ Supported calls:
 - `analyzer:read_level(duration_ms)` returns RMS and peak level data
 - `analyzer:read_spectrum(fft_size, bands)` returns spectrum bands and peak frequency data
 - `analyzer:close()` closes the analyzer
+
+## Voice Stream
+
+`audio.voice_stream(opts)` creates a blocking Opus/WebSocket voice stream. It
+expects 16 kHz, mono, 16-bit input and output devices, matching the ESP32-S3
+SuperMini INMP441 + MAX98357A profile.
+
+```lua
+local audio = require("audio")
+local board_manager = require("board_manager")
+
+local in_codec, in_rate, in_channels, in_bits =
+    board_manager.get_audio_codec_input_params("audio_adc")
+local out_codec, out_rate, out_channels, out_bits =
+    board_manager.get_audio_codec_output_params("audio_dac")
+
+local input = assert(audio.new_input({ in_codec, in_rate, in_channels, in_bits, volume = 80 }))
+local output = assert(audio.new_output({ out_codec, out_rate, out_channels, out_bits, volume = 80 }))
+local stream = assert(audio.voice_stream({
+    input = input,
+    output = output,
+    uri = "ws://192.168.1.10:8080/ws/voice",
+    frame_ms = 60,
+    bitrate = 24000,
+}))
+
+local stats = assert(stream:run({ record_ms = 5000, playback_timeout_ms = 15000 }))
+print(stats.tx_frames, stats.rx_frames)
+
+stream:close()
+input:close()
+output:close()
+```
+
+The stream sends JSON control frames (`hello`, `listen/start`, `listen/stop`)
+and raw binary Opus audio frames. Binary Opus frames received from the server
+are decoded and written to the output device immediately.
 
 ## Example
 ```lua

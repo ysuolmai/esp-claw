@@ -9,7 +9,9 @@ idf_component_register(
         esp-dsp
         esp_audio_codec
         esp_audio_simple_player
+        esp_websocket_client
         esp_asrc
+        esp_timer
         gmf_core
         gmf_io
         mbedtls

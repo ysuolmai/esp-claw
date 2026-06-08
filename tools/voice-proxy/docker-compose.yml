@@ -1,0 +1,17 @@
+services:
+  voice-proxy:
+    build: .
+    container_name: esp-claw-voice-proxy
+    ports:
+      - "8080:8080"
+    environment:
+      SAMPLE_RATE: "16000"
+      CHANNELS: "1"
+      FRAME_MS: "60"
+      OPUS_BITRATE: "24000"
+      SHERPA_NUM_THREADS: "2"
+      REPLY_MODE: "echo"
+    volumes:
+      - ./models:/models
+      - ./data:/data
+    restart: unless-stopped
