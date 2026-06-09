@@ -16,6 +16,47 @@
 
 static const char *TAG = "claw_core";
 
+#define CLAW_CORE_STAGE_REASONING_SNIPPET_LEN 150
+
+static size_t utf8_prefix_len(const char *text, size_t max_bytes)
+{
+    const unsigned char *p = (const unsigned char *)text;
+    size_t off = 0;
+
+    if (!text) {
+        return 0;
+    }
+
+    while (p[off] && off < max_bytes) {
+        size_t char_len = 1;
+        unsigned char ch = p[off];
+
+        if ((ch & 0x80) == 0) {
+            char_len = 1;
+        } else if ((ch & 0xE0) == 0xC0) {
+            char_len = 2;
+        } else if ((ch & 0xF0) == 0xE0) {
+            char_len = 3;
+        } else if ((ch & 0xF8) == 0xF0) {
+            char_len = 4;
+        } else {
+            break;
+        }
+
+        if (off + char_len > max_bytes) {
+            break;
+        }
+        for (size_t i = 1; i < char_len; i++) {
+            if ((p[off + i] & 0xC0) != 0x80) {
+                return off;
+            }
+        }
+        off += char_len;
+    }
+
+    return off;
+}
+
 static esp_err_t build_response_payload_json(const claw_core_request_t *request,
                                              const claw_core_response_t *response,
                                              char **out_payload_json)
@@ -226,12 +267,32 @@ void claw_core_publish_stage_tool_calls(const claw_core_request_t *request,
     size_t i;
     int written;
 
-    if (!response || response->tool_call_count == 0) {
+    if (!response) {
+        return;
+    }
+
+    if (response->reasoning_content && response->reasoning_content[0]) {
+        size_t reasoning_len = strlen(response->reasoning_content);
+        size_t prefix_len = utf8_prefix_len(response->reasoning_content,
+                                            CLAW_CORE_STAGE_REASONING_SNIPPET_LEN);
+
+        written = snprintf(buf, sizeof(buf), "🦞 [Round %" PRIu32 "] %.*s%s",
+                           iteration + 1,
+                           (int)prefix_len,
+                           response->reasoning_content,
+                           reasoning_len > prefix_len ? "..." : "");
+        if (written < 0 || (size_t)written >= sizeof(buf)) {
+            return;
+        }
+        (void)claw_core_publish_stage_text(request, buf);
+        return;
+    }
+
+    if (response->tool_call_count == 0) {
         return;
     }
 
     written = snprintf(buf, sizeof(buf), "🦞 [Round %" PRIu32 "] Snap: ", iteration + 1);
-
     if (written < 0 || (size_t)written >= sizeof(buf)) {
         return;
     }

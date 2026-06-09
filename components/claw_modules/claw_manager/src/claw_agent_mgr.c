@@ -457,6 +457,7 @@ static void claw_agent_mgr_fill_core_config(claw_agent_mgr_agent_t *agent,
 static esp_err_t claw_agent_mgr_start_agent_core(claw_agent_mgr_agent_t *agent)
 {
     claw_core_config_t core_config = {0};
+    claw_core_context_provider_t cap_tools_provider = {0};
     char *agent_system_prompt = NULL;
     esp_err_t ret;
 
@@ -478,6 +479,12 @@ static esp_err_t claw_agent_mgr_start_agent_core(claw_agent_mgr_agent_t *agent)
     agent->cap_user_ctx.core = &agent->core;
     agent->cap_user_ctx.caller = agent->role == CLAW_AGENT_MGR_ROLE_ROOT ?
                                  CLAW_CAP_CALLER_ROOT_AGENT : CLAW_CAP_CALLER_SUB_AGENT;
+    agent->cap_user_ctx.agent_id = agent->agent_id;
+    agent->cap_user_ctx.agent_type = agent->agent_type;
+    agent->cap_user_ctx.parent_agent_id = agent->role == CLAW_AGENT_MGR_ROLE_SUBAGENT ?
+                                          CLAW_AGENT_MGR_ROOT_AGENT_ID : NULL;
+    agent->cap_user_ctx.parent_session_id = agent->role == CLAW_AGENT_MGR_ROLE_SUBAGENT ?
+                                            agent->parent_session_id : NULL;
 
     ret = claw_core_create(&core_config, &agent->core);
     free(agent_system_prompt);
@@ -490,10 +497,11 @@ static esp_err_t claw_agent_mgr_start_agent_core(claw_agent_mgr_agent_t *agent)
         ESP_GOTO_ON_ERROR(claw_core_add_context_provider(agent->core, &s_mgr.base_providers[i]),
                           fail, TAG, "add base context provider");
     }
-    ESP_GOTO_ON_ERROR(claw_core_add_context_provider(agent->core,
-                                                    agent->role == CLAW_AGENT_MGR_ROLE_ROOT ?
-                                                    &claw_cap_root_agent_tools_provider :
-                                                    &claw_cap_sub_agent_tools_provider),
+    cap_tools_provider = agent->role == CLAW_AGENT_MGR_ROLE_ROOT ?
+                         claw_cap_root_agent_tools_provider :
+                         claw_cap_sub_agent_tools_provider;
+    cap_tools_provider.user_ctx = &agent->cap_user_ctx;
+    ESP_GOTO_ON_ERROR(claw_core_add_context_provider(agent->core, &cap_tools_provider),
                       fail, TAG, "add cap tools provider");
     if (agent->role == CLAW_AGENT_MGR_ROLE_SUBAGENT) {
         ESP_GOTO_ON_ERROR(claw_core_add_completion_observer(agent->core,

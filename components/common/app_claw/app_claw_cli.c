@@ -30,12 +30,6 @@
 #if CONFIG_APP_CLAW_CAP_LUA
 #include "cmd_cap_lua.h"
 #endif
-#if CONFIG_APP_CLAW_CAP_MCP_CLIENT
-#include "cmd_cap_mcp_client.h"
-#endif
-#if CONFIG_APP_CLAW_CAP_MCP_SERVER
-#include "cmd_cap_mcp_server.h"
-#endif
 #if CONFIG_APP_CLAW_CAP_ROUTER_MGR
 #include "cmd_cap_router_mgr.h"
 #endif
@@ -721,12 +715,6 @@ static void register_cap_cli_commands(void)
 #endif
 #if CONFIG_APP_CLAW_CAP_LLM_INSPECT
     register_cap_llm_inspect();
-#endif
-#if CONFIG_APP_CLAW_CAP_MCP_CLIENT
-    register_cap_mcp_client();
-#endif
-#if CONFIG_APP_CLAW_CAP_MCP_SERVER
-    register_cap_mcp_server();
 #endif
 #if CONFIG_APP_CLAW_CAP_ROUTER_MGR
     register_cap_router_mgr();

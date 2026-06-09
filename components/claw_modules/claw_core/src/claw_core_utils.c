@@ -175,7 +175,20 @@ void claw_core_log_tool_call_names(uint32_t request_id, const claw_core_llm_resp
     size_t off = 0;
     size_t i;
 
-    if (!response || response->tool_call_count == 0) {
+    if (!response) {
+        return;
+    }
+
+    if (response->reasoning_content && response->reasoning_content[0]) {
+        ESP_LOGD(TAG, "llm_reasoning_content request=%" PRIu32 " content=%.*s%s",
+                 request_id,
+                 claw_core_log_snippet_len(response->reasoning_content),
+                 claw_core_log_snippet(response->reasoning_content),
+                 claw_core_log_snippet_suffix(response->reasoning_content));
+        return;
+    }
+
+    if (response->tool_call_count == 0) {
         return;
     }
 

@@ -61,6 +61,7 @@
               -vv \
               --board ${EXAMPLE_BOARD} \
               --board-path ${EXAMPLE_BOARD_PATH} \
+              --ignore-warnings \
               ${EXAMPLE_APPEND_ARGS}
     - python .gitlab/ci/merge_bin.py
 
@@ -188,3 +189,16 @@ build_application_edge_agent:
         EXAMPLE_BOARD: dfrobot_firebeetle_2_ESP32_C5_for_display
         EXAMPLE_TARGET: esp32c5
         EXAMPLE_BOARD_BRAND: "dfrobot"
+
+build_application_mcp_server_point:
+  extends:
+    - .build_examples_template
+    - .rules:build:application_mcp_server_point
+  variables:
+    IMAGE: espressif/idf:release-v5.5
+    EXAMPLE_DIR: application/mcp_server_point
+  parallel:
+    matrix:
+      - EXAMPLE_BOARD: esp_Ditto
+        EXAMPLE_TARGET: esp32c5
+        EXAMPLE_BOARD_BRAND: "espressif"
