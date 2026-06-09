@@ -83,3 +83,11 @@ idf.py menuconfig
 idf.py build
 idf.py flash monitor
 ```
+
+### ESP32-S3 SuperMini
+
+The ESP32-S3 SuperMini profile has a dedicated quick-start guide covering
+firmware artifacts, Wi-Fi provisioning, INMP441/MAX98357A wiring, the local
+voice proxy, sherpa-onnx setup, and custom OpenAI-compatible base URLs:
+
+- [ESP32-S3 SuperMini Quick Start](./boards/espressif/esp32_S3_Super_Mini/README.md)

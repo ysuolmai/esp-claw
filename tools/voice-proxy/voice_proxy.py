@@ -47,6 +47,14 @@ def _env(name: str) -> str:
     return os.getenv(name, "").strip()
 
 
+def _first_env(*names: str) -> str:
+    for name in names:
+        value = _env(name)
+        if value:
+            return value
+    return ""
+
+
 def _load_paraformer_asr(num_threads: int) -> Optional[object]:
     if sherpa_onnx is None:
         runtime.errors.append("sherpa-onnx is not installed")
@@ -169,11 +177,14 @@ async def make_reply(text: str) -> str:
         return f"I heard: {text}"
 
     if mode == "openai-compatible":
-        base_url = _env("LLM_BASE_URL").rstrip("/")
-        api_key = _env("LLM_API_KEY")
-        model = _env("LLM_MODEL") or "qwen2.5:7b"
-        if not base_url:
+        chat_url = _first_env("OPENAI_CHAT_COMPLETIONS_URL", "LLM_CHAT_COMPLETIONS_URL").rstrip("/")
+        base_url = _first_env("OPENAI_BASE_URL", "LLM_BASE_URL").rstrip("/")
+        api_key = _first_env("OPENAI_API_KEY", "LLM_API_KEY")
+        model = _first_env("OPENAI_MODEL", "LLM_MODEL") or "qwen2.5:7b"
+        if not chat_url and not base_url:
             return f"Recognized: {text}"
+        if not chat_url:
+            chat_url = base_url if base_url.endswith("/chat/completions") else f"{base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         payload = {
             "model": model,
@@ -184,7 +195,7 @@ async def make_reply(text: str) -> str:
             "temperature": 0.7,
         }
         async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
+            resp = await client.post(chat_url, headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
             return data["choices"][0]["message"]["content"].strip()

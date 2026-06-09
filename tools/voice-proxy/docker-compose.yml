@@ -11,6 +11,15 @@ services:
       OPUS_BITRATE: "24000"
       SHERPA_NUM_THREADS: "2"
       REPLY_MODE: "echo"
+      # For a non-official OpenAI-compatible API, switch REPLY_MODE to
+      # openai-compatible and set these values. OPENAI_BASE_URL should usually
+      # be the provider's /v1 base URL; use OPENAI_CHAT_COMPLETIONS_URL only if
+      # your provider exposes a non-standard full endpoint.
+      # REPLY_MODE: "openai-compatible"
+      # OPENAI_BASE_URL: "https://api.example.com/v1"
+      # OPENAI_CHAT_COMPLETIONS_URL: ""
+      # OPENAI_MODEL: "qwen2.5:7b"
+      # OPENAI_API_KEY: ""
     volumes:
       - ./models:/models
       - ./data:/data

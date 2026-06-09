@@ -24,7 +24,15 @@ Health check:
 curl http://localhost:8080/health
 ```
 
-## Configure Models
+The ESP32 must connect to the host machine's LAN IP, not `localhost`. For
+example, if the host running Docker is `192.168.1.10`, the ESP32 WebSocket URL
+is:
+
+```text
+ws://192.168.1.10:8080/ws/voice
+```
+
+## Configure sherpa-onnx Models
 
 Place sherpa-onnx models under `tools/voice-proxy/models` and set env vars in
 `docker-compose.yml`.
@@ -50,21 +58,38 @@ add resampling in `text_to_pcm16()`.
 
 ## Reply Modes
 
-Default:
+Echo mode is the default and does not call an LLM:
 
 ```yaml
 REPLY_MODE: echo
 ```
 
-The proxy speaks back a short echo of the recognized text.
-
-OpenAI-compatible / Ollama-style chat:
+OpenAI-compatible mode calls a chat-completions API after STT:
 
 ```yaml
 REPLY_MODE: openai-compatible
-LLM_BASE_URL: http://host.docker.internal:11434/v1
+OPENAI_BASE_URL: https://api.example.com/v1
+OPENAI_MODEL: qwen2.5:7b
+OPENAI_API_KEY: sk-...
+```
+
+`OPENAI_BASE_URL` can be any OpenAI-compatible provider base URL. It does not
+need to be the official OpenAI endpoint. The proxy posts to
+`$OPENAI_BASE_URL/chat/completions`.
+
+If your provider exposes a non-standard full endpoint, set this instead:
+
+```yaml
+OPENAI_CHAT_COMPLETIONS_URL: https://api.example.com/custom/chat
+```
+
+Backward-compatible aliases are also accepted:
+
+```yaml
+LLM_BASE_URL: https://api.example.com/v1
 LLM_MODEL: qwen2.5:7b
-LLM_API_KEY:
+LLM_API_KEY: sk-...
+LLM_CHAT_COMPLETIONS_URL: https://api.example.com/custom/chat
 ```
 
 ## ESP32 Lua Test
