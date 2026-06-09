@@ -157,10 +157,24 @@ Configure `voice_server_url` in Web Admin, for example:
 ws://192.168.1.10:8080/ws/voice
 ```
 
+After STA Wi-Fi is connected, BOOT becomes push-to-talk when
+`voice_server_url` is set:
+
+```text
+press BOOT:  start Opus/WebSocket voice stream
+hold BOOT:   keep recording, up to 60 seconds
+release BOOT: send listen/stop, wait for server reply audio, play through I2S
+```
+
+The boot-time recovery gesture is still available: hold BOOT while resetting or
+powering on for 5 seconds to force AP provisioning for that boot. During normal
+runtime, if `voice_server_url` is empty or STA Wi-Fi is not connected, the same
+5-second BOOT hold restarts into AP provisioning.
+
 You can also run a push-to-talk bring-up test from the ESP-Claw console:
 
 ```lua
-lua --run --path /system/scripts/voice_stream_supermini.lua --args '{"uri":"ws://192.168.1.10:8080/ws/voice","record_ms":5000}'
+lua --run --path /system/scripts/voice_stream_supermini.lua --args '{"uri":"ws://192.168.1.10:8080/ws/voice","record_ms":5000,"playback_timeout_ms":15000}'
 ```
 
 See `docs/ESP32_S3_SUPERMINI.md`, `docs/WIFI_ONBOARDING_AP.md`, and

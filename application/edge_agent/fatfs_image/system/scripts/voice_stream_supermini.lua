@@ -1,9 +1,16 @@
 local audio = require("audio")
 local board_manager = require("board_manager")
 
-local uri = args and args.uri or "ws://192.168.1.10:8080/ws/voice"
-local record_ms = tonumber(args and args.record_ms) or 5000
-local playback_timeout_ms = tonumber(args and args.playback_timeout_ms) or 15000
+local uri = args and args.uri or ""
+local record_ms = tonumber(args and args.record_ms) or 60000
+local min_record_ms = tonumber(args and args.min_record_ms) or 300
+local playback_timeout_ms = tonumber(args and args.playback_timeout_ms) or 20000
+local stop_gpio = tonumber(args and args.stop_gpio) or -1
+local stop_level = tonumber(args and args.stop_level) or 1
+
+if uri == "" then
+    error("voice_server_url is empty; configure it in Web Admin or pass args.uri")
+end
 
 local in_codec, in_rate, in_channels, in_bits =
     board_manager.get_audio_codec_input_params("audio_adc")
@@ -25,12 +32,18 @@ local stream = assert(audio.voice_stream({
     complexity = 0,
     vbr = true,
     dtx = true,
+    min_record_ms = min_record_ms,
+    stop_gpio = stop_gpio,
+    stop_level = stop_level,
 }))
 
 local ok, result = pcall(function()
     return stream:run({
         record_ms = record_ms,
+        min_record_ms = min_record_ms,
         playback_timeout_ms = playback_timeout_ms,
+        stop_gpio = stop_gpio,
+        stop_level = stop_level,
     })
 end)
 

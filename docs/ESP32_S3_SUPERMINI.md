@@ -60,9 +60,28 @@ The SuperMini profile keeps the features that fit the 4 MB / 2 MB target:
 - Lua filesystem/tools
 - Opus encoder/decoder for the voice streaming script
 - INMP441/MAX98357A bring-up through the audio Lua module
+- BOOT/GPIO0 push-to-talk streaming when STA Wi-Fi and `voice_server_url`
+  are configured
 
 Large optional stacks such as Bluetooth, camera, display, LVGL, and local
 on-device STT/TTS are disabled.
+
+## Voice Path
+
+Set `voice_server_url` in Web Admin, for example:
+
+```text
+ws://192.168.1.10:8080/ws/voice
+```
+
+After STA Wi-Fi is connected, hold BOOT while speaking and release BOOT to end
+the utterance. The ESP32-S3 streams Opus frames to the LAN voice server and
+plays the returned Opus audio through MAX98357A. STT/TTS and any LLM call run on
+the external server, not on the ESP32-S3 flash.
+
+Runtime BOOT is consumed by voice when STA Wi-Fi is connected and
+`voice_server_url` is set. For recovery, hold BOOT while resetting or powering
+on; the boot-time 5-second AP provisioning check still runs before voice starts.
 
 ## Build Locally
 

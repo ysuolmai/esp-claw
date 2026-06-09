@@ -93,6 +93,14 @@ jobs:
         run: |
           . /opt/esp/idf/export.sh
           python $IDF_PATH/tools/idf_size.py build/edge_agent.elf || true
+          python - <<'PY'
+          from pathlib import Path
+          app = Path("build/edge_agent.bin")
+          limit = 2944 * 1024
+          if app.exists():
+              size = app.stat().st_size
+              print(f"ESP32-S3 SuperMini app image: {size} bytes / {limit} bytes, free {limit - size} bytes")
+          PY
           ls -lh build/*.bin build/partition_table/*.bin || true
 
       - name: Upload firmware artifacts

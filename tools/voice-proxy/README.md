@@ -94,10 +94,15 @@ LLM_CHAT_COMPLETIONS_URL: https://api.example.com/custom/chat
 
 ## ESP32 Lua Test
 
-Run the built-in script from the ESP-Claw console or Web Lua runner:
+Set `voice_server_url` in Web Admin to the LAN URL, then press and hold BOOT on
+the ESP32-S3 SuperMini to talk. Release BOOT to send `listen/stop`; the proxy
+runs STT/reply/TTS and streams reply Opus back to the speaker.
+
+You can also run the built-in script from the ESP-Claw console or Web Lua
+runner:
 
 ```lua
-lua --run --path /system/scripts/voice_stream_supermini.lua --args '{"uri":"ws://192.168.1.10:8080/ws/voice","record_ms":5000}'
+lua --run --path /system/scripts/voice_stream_supermini.lua --args '{"uri":"ws://192.168.1.10:8080/ws/voice","record_ms":5000,"playback_timeout_ms":15000}'
 ```
 
 Use the IP address of the machine running this proxy.

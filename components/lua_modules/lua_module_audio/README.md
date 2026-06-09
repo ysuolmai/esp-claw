@@ -153,9 +153,17 @@ local stream = assert(audio.voice_stream({
     uri = "ws://192.168.1.10:8080/ws/voice",
     frame_ms = 60,
     bitrate = 24000,
+    stop_gpio = 0,
+    stop_level = 1,
 }))
 
-local stats = assert(stream:run({ record_ms = 5000, playback_timeout_ms = 15000 }))
+local stats = assert(stream:run({
+    record_ms = 60000,
+    min_record_ms = 300,
+    playback_timeout_ms = 15000,
+    stop_gpio = 0,
+    stop_level = 1,
+}))
 print(stats.tx_frames, stats.rx_frames)
 
 stream:close()
@@ -166,6 +174,12 @@ output:close()
 The stream sends JSON control frames (`hello`, `listen/start`, `listen/stop`)
 and raw binary Opus audio frames. Binary Opus frames received from the server
 are decoded and written to the output device immediately.
+
+`stop_gpio` and `stop_level` make push-to-talk practical: recording stops after
+`min_record_ms` once that GPIO reaches the stop level. On the ESP32-S3
+SuperMini BOOT button, GPIO0 is active-low, so `stop_level = 1` means "stop
+when BOOT is released". Async Lua cancellation also stops the recording loop
+cooperatively.
 
 ## Example
 ```lua

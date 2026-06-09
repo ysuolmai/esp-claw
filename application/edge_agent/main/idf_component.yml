@@ -38,6 +38,11 @@ dependencies:
   claw_ramfs:
     path: ../../../components/claw_modules/claw_ramfs
 
+  cap_lua:
+    rules:
+      - if: $CONFIG{APP_CLAW_CAP_LUA} == True
+    path: ../../../components/claw_capabilities/cap_lua
+
   emote:
     path: ../../../components/common/emote
     rules:

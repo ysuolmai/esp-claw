@@ -115,6 +115,45 @@ menu "Default Voice Settings"
             Web Admin config. The SuperMini Lua voice-stream script also
             accepts a per-run uri argument.
 
+    config APP_VOICE_PTT_GPIO
+        int "GPIO used for push-to-talk voice streaming"
+        range -1 49
+        default -1
+        help
+            GPIO sampled as a push-to-talk input. Set to -1 to disable. The
+            ESP32-S3 SuperMini profile maps this to BOOT/GPIO0.
+
+    config APP_VOICE_PTT_ACTIVE_LEVEL
+        int "Push-to-talk active level"
+        range 0 1
+        default 0
+        help
+            Logic level treated as pressed for the push-to-talk GPIO.
+
+    config APP_VOICE_PTT_MAX_RECORD_MS
+        int "Push-to-talk maximum record time"
+        range 1000 120000
+        default 60000
+        help
+            Safety cap for one push-to-talk utterance. Releasing the button
+            ends recording earlier.
+
+    config APP_VOICE_PTT_MIN_RECORD_MS
+        int "Push-to-talk minimum record time"
+        range 0 5000
+        default 300
+        help
+            Minimum capture time before a button release is allowed to stop
+            the current utterance. This avoids empty streams from short taps.
+
+    config APP_VOICE_PTT_PLAYBACK_TIMEOUT_MS
+        int "Push-to-talk playback wait timeout"
+        range 0 60000
+        default 20000
+        help
+            Maximum time to keep the voice WebSocket open waiting for server
+            reply audio after recording stops.
+
 endmenu
 
 menu "Default Search Settings"

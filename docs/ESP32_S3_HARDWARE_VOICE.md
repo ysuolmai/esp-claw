@@ -28,13 +28,17 @@ The firmware provides:
 - Opus encoder and decoder support
 - `/system/scripts/voice_stream_supermini.lua`
 - Web Admin field `voice_server_url`
+- BOOT/GPIO0 push-to-talk when STA Wi-Fi is connected
 
-The current script is push-to-talk style:
+The SuperMini runtime path is push-to-talk style:
 
 ```text
+press BOOT
 record PCM16 mono at 16 kHz
 encode Opus frames
-send frames over WebSocket
+stream frames over WebSocket
+release BOOT
+send listen/stop
 receive reply audio frames
 decode/play through I2S speaker
 ```
@@ -111,10 +115,14 @@ Set `voice_server_url` in Web Admin:
 ws://192.168.1.10:8080/ws/voice
 ```
 
-Then run:
+After STA Wi-Fi is connected, hold BOOT while speaking and release BOOT to
+finish the utterance. The firmware sends Opus frames while the button is held,
+then waits for reply audio from the server and plays it through the MAX98357A.
+
+The same Lua script can be launched manually for bring-up:
 
 ```lua
-lua --run --path /system/scripts/voice_stream_supermini.lua --args '{"uri":"ws://192.168.1.10:8080/ws/voice","record_ms":5000}'
+lua --run --path /system/scripts/voice_stream_supermini.lua --args '{"uri":"ws://192.168.1.10:8080/ws/voice","record_ms":5000,"playback_timeout_ms":15000}'
 ```
 
 Use short tests first. A practical push-to-talk range is 5-20 seconds per

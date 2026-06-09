@@ -35,6 +35,13 @@ The saved SSID and password are not erased. The next boot simply skips STA,
 starts the provisioning AP, and lets you edit settings. A later reboot can use
 the existing STA credentials again.
 
+On ESP32-S3 SuperMini builds with voice enabled, BOOT is also the runtime
+push-to-talk key after STA Wi-Fi is connected and `voice_server_url` is set.
+For Wi-Fi recovery in that state, hold BOOT while resetting or powering on; the
+boot-time 5-second provisioning check still runs before the voice runtime starts.
+If `voice_server_url` is empty or STA Wi-Fi is offline, runtime 5-second BOOT
+hold still restarts into provisioning.
+
 ## Web Admin Security
 
 During first-time or forced AP provisioning, Web Admin is open so the device can

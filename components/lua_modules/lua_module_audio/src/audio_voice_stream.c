@@ -10,6 +10,8 @@
 #include "esp_opus_enc.h"
 #include "esp_timer.h"
 #include "esp_websocket_client.h"
+#include "cap_lua.h"
+#include "driver/gpio.h"
 
 #define VOICE_STREAM_WS_BUFFER_SIZE      4096
 #define VOICE_STREAM_WS_TASK_STACK       (12 * 1024)
@@ -28,11 +30,14 @@ typedef struct {
     uint32_t sample_rate;
     uint32_t frame_ms;
     uint32_t record_ms;
+    uint32_t min_record_ms;
     uint32_t playback_timeout_ms;
     uint8_t channels;
     uint8_t bits;
     int bitrate;
     int complexity;
+    int stop_gpio;
+    int stop_level;
     bool enable_vbr;
     bool enable_dtx;
     bool closed;
@@ -66,6 +71,14 @@ static audio_voice_stream_t *lua_audio_check_voice_stream(lua_State *L, int idx)
         luaL_error(L, "audio voice_stream: invalid or closed stream");
     }
     return stream;
+}
+
+static bool audio_voice_stop_gpio_requested(int stop_gpio, int stop_level)
+{
+    if (stop_gpio < 0 || stop_gpio >= GPIO_NUM_MAX) {
+        return false;
+    }
+    return gpio_get_level((gpio_num_t)stop_gpio) == (stop_level ? 1 : 0);
 }
 
 static bool audio_voice_mem_contains(const char *data, int len, const char *needle)
@@ -461,11 +474,14 @@ int lua_audio_voice_stream_new(lua_State *L)
     stream->sample_rate = lua_audio_get_u32_field(L, 1, "sample_rate", 0, 16000);
     stream->frame_ms = lua_audio_get_u32_field(L, 1, "frame_ms", 0, 60);
     stream->record_ms = lua_audio_get_u32_field(L, 1, "record_ms", 0, 5000);
+    stream->min_record_ms = lua_audio_get_u32_field(L, 1, "min_record_ms", 0, 0);
     stream->playback_timeout_ms = lua_audio_get_u32_field(L, 1, "playback_timeout_ms", 0, 15000);
     stream->channels = lua_audio_get_u8_field(L, 1, "channels", 0, 1);
     stream->bits = lua_audio_get_u8_field(L, 1, "bits", 0, 16);
     stream->bitrate = lua_audio_get_int_field(L, 1, "bitrate", 24000);
     stream->complexity = lua_audio_get_int_field(L, 1, "complexity", 0);
+    stream->stop_gpio = lua_audio_get_int_field(L, 1, "stop_gpio", -1);
+    stream->stop_level = lua_audio_get_int_field(L, 1, "stop_level", 1);
     stream->enable_vbr = audio_voice_get_bool_field(L, 1, "vbr", true);
     stream->enable_dtx = audio_voice_get_bool_field(L, 1, "dtx", true);
     stream->input_ref = LUA_NOREF;
@@ -488,7 +504,10 @@ int lua_audio_voice_stream_run(lua_State *L)
 {
     audio_voice_stream_t *stream = lua_audio_check_voice_stream(L, 1);
     uint32_t record_ms = stream->record_ms;
+    uint32_t min_record_ms = stream->min_record_ms;
     uint32_t playback_timeout_ms = stream->playback_timeout_ms;
+    int stop_gpio = stream->stop_gpio;
+    int stop_level = stream->stop_level;
     char *headers = NULL;
     esp_err_t err;
 
@@ -497,7 +516,10 @@ int lua_audio_voice_stream_run(lua_State *L)
     }
     if (lua_istable(L, 2)) {
         record_ms = lua_audio_get_u32_field(L, 2, "record_ms", 0, record_ms);
+        min_record_ms = lua_audio_get_u32_field(L, 2, "min_record_ms", 0, min_record_ms);
         playback_timeout_ms = lua_audio_get_u32_field(L, 2, "playback_timeout_ms", 0, playback_timeout_ms);
+        stop_gpio = lua_audio_get_int_field(L, 2, "stop_gpio", stop_gpio);
+        stop_level = lua_audio_get_int_field(L, 2, "stop_level", stop_level);
     }
 
     err = audio_voice_validate_formats(stream);
@@ -554,8 +576,16 @@ int lua_audio_voice_stream_run(lua_State *L)
     }
 
     if (err == ESP_OK) {
-        int64_t end_ms = (esp_timer_get_time() / 1000LL) + record_ms;
+        int64_t start_ms = esp_timer_get_time() / 1000LL;
+        int64_t end_ms = start_ms + record_ms;
         while (stream->connected && (esp_timer_get_time() / 1000LL) < end_ms) {
+            int64_t elapsed_ms = (esp_timer_get_time() / 1000LL) - start_ms;
+            if (elapsed_ms >= min_record_ms &&
+                (audio_voice_stop_gpio_requested(stop_gpio, stop_level) ||
+                 cap_lua_runtime_stop_requested(L))) {
+                ESP_LOGI(TAG, "Voice stream record stop requested after %" PRId64 " ms", elapsed_ms);
+                break;
+            }
             int ret = esp_codec_dev_read(stream->input->codec_dev, stream->pcm_buf, stream->pcm_size);
             if (ret != ESP_CODEC_DEV_OK) {
                 ESP_LOGE(TAG, "Voice stream input read failed: %d", ret);
@@ -597,6 +627,10 @@ int lua_audio_voice_stream_run(lua_State *L)
     if (err == ESP_OK && playback_timeout_ms > 0) {
         int64_t end_ms = (esp_timer_get_time() / 1000LL) + playback_timeout_ms;
         while (stream->connected && !stream->server_done && (esp_timer_get_time() / 1000LL) < end_ms) {
+            if (cap_lua_runtime_stop_requested(L)) {
+                ESP_LOGI(TAG, "Voice stream playback wait stopped by async cancellation");
+                break;
+            }
             vTaskDelay(pdMS_TO_TICKS(50));
         }
     }
