@@ -44,6 +44,77 @@ menu "Default Wi-Fi Settings"
             falls back to pure AP mode and waits for the user to provision
             new credentials.
 
+    config APP_WIFI_FORCE_PROVISION_GPIO
+        int "GPIO used for BOOT long-press Wi-Fi provisioning"
+        range -1 49
+        default -1
+        help
+            GPIO sampled as an active-low BOOT/config button. Set to -1 to
+            disable. Board profiles such as ESP32-S3 SuperMini can set this
+            to GPIO0.
+
+    config APP_WIFI_FORCE_PROVISION_HOLD_MS
+        int "BOOT hold time for Wi-Fi provisioning"
+        range 500 30000
+        default 5000
+        help
+            Holding the configured BOOT GPIO low for this many milliseconds
+            requests a one-shot provisioning boot. Saved Wi-Fi credentials
+            are kept; the next boot simply skips STA and opens the AP portal.
+
+endmenu
+
+menu "Status LED"
+
+    config APP_STATUS_LED_WS2812_GPIO
+        int "WS2812 status LED GPIO"
+        range -1 49
+        default -1
+        help
+            GPIO for a single WS2812 status LED. Set to -1 to disable. The
+            firmware keeps the LED off during normal operation and blinks it
+            slowly only while the provisioning AP is open.
+
+    config APP_STATUS_LED_AP_BLINK_MS
+        int "Provisioning AP LED blink interval"
+        range 100 5000
+        default 800
+        help
+            Blink interval for the status LED when the provisioning AP is
+            active and STA Wi-Fi is not connected.
+
+endmenu
+
+menu "Default Web Admin Security"
+
+    config APP_ADMIN_USERNAME
+        string "Default Web Admin username"
+        default "admin"
+        help
+            Build-time fallback username for STA Web Admin HTTP Basic Auth.
+            NVS config takes precedence.
+
+    config APP_ADMIN_PASSWORD
+        string "Default Web Admin password"
+        default ""
+        help
+            Optional build-time fallback password for STA Web Admin HTTP
+            Basic Auth. If unset and no NVS password exists, the firmware
+            generates a password from the provisioning AP suffix and prints it
+            to the serial log.
+
+endmenu
+
+menu "Default Voice Settings"
+
+    config APP_VOICE_SERVER_URL
+        string "Default voice WebSocket server URL"
+        default ""
+        help
+            Optional default LAN voice server URL used by documentation and
+            Web Admin config. The SuperMini Lua voice-stream script also
+            accepts a per-run uri argument.
+
 endmenu
 
 menu "Default Search Settings"

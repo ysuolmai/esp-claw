@@ -43,6 +43,7 @@ bool http_server_build_child_relative_path(const char *base_path,
                                            const char *entry_name,
                                            char *out_path,
                                            size_t out_path_size);
+esp_err_t http_server_require_admin(httpd_req_t *req);
 
 esp_err_t http_server_register_assets_routes(httpd_handle_t server);
 esp_err_t http_server_register_capabilities_routes(httpd_handle_t server);

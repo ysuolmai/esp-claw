@@ -5,6 +5,7 @@
  */
 #include "app_claw.h"
 #include "app_fs.h"
+#include "app_status_led.h"
 #include "claw_paths.h"
 #include <string.h>
 #include <stdlib.h>
@@ -17,10 +18,12 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
+#include "esp_attr.h"
 #include "esp_system.h"
 #include "esp_board_manager_includes.h"
 #include "captive_dns.h"
 #include "cmd_wifi.h"
+#include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #if CONFIG_APP_CLAW_CAP_IM_WECHAT
@@ -34,6 +37,11 @@ static const char *TAG = "app";
 
 static app_config_t *s_config;
 static app_claw_config_t *s_claw_config;
+static bool s_force_provision_this_boot;
+
+#define APP_FORCE_PROVISION_MAGIC 0xC1A05A3U
+
+static RTC_NOINIT_ATTR uint32_t s_force_provision_magic;
 
 static esp_err_t app_allocate_runtime_state(void)
 {
@@ -87,9 +95,147 @@ static void on_wifi_state_changed(bool connected, void *user_ctx)
              status.mode ? status.mode : "off",
              ap_ssid ? ap_ssid : "(none)");
 
+    app_status_led_set_provisioning(status.ap_active && !status.sta_connected);
+
     esp_err_t err = app_claw_set_network_status(connected, ap_ssid);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "Failed to update network emote: %s", esp_err_to_name(err));
+    }
+}
+
+static bool main_boot_button_configured(void)
+{
+#if CONFIG_APP_WIFI_FORCE_PROVISION_GPIO >= 0
+    return CONFIG_APP_WIFI_FORCE_PROVISION_GPIO >= 0;
+#else
+    return false;
+#endif
+}
+
+static esp_err_t main_configure_boot_button_gpio(void)
+{
+#if CONFIG_APP_WIFI_FORCE_PROVISION_GPIO >= 0
+    if (!main_boot_button_configured()) {
+        return ESP_OK;
+    }
+
+    const gpio_config_t io_conf = {
+        .pin_bit_mask = 1ULL << CONFIG_APP_WIFI_FORCE_PROVISION_GPIO,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    return gpio_config(&io_conf);
+#else
+    return ESP_OK;
+#endif
+}
+
+static bool main_boot_button_is_held_for(uint32_t hold_ms)
+{
+#if CONFIG_APP_WIFI_FORCE_PROVISION_GPIO >= 0
+    if (!main_boot_button_configured()) {
+        return false;
+    }
+    if (gpio_get_level((gpio_num_t)CONFIG_APP_WIFI_FORCE_PROVISION_GPIO) != 0) {
+        return false;
+    }
+
+    const uint32_t step_ms = 50;
+    uint32_t elapsed_ms = 0;
+    while (elapsed_ms < hold_ms) {
+        vTaskDelay(pdMS_TO_TICKS(step_ms));
+        if (gpio_get_level((gpio_num_t)CONFIG_APP_WIFI_FORCE_PROVISION_GPIO) != 0) {
+            return false;
+        }
+        elapsed_ms += step_ms;
+    }
+    return true;
+#else
+    (void)hold_ms;
+    return false;
+#endif
+}
+
+static bool main_take_force_provision_request(void)
+{
+    if (s_force_provision_magic == APP_FORCE_PROVISION_MAGIC) {
+        s_force_provision_magic = 0;
+        ESP_LOGW(TAG, "One-shot BOOT provisioning request consumed; saved STA credentials are kept");
+        return true;
+    }
+
+    if (!main_boot_button_configured()) {
+        return false;
+    }
+
+    if (main_boot_button_is_held_for(CONFIG_APP_WIFI_FORCE_PROVISION_HOLD_MS)) {
+        ESP_LOGW(TAG,
+                 "BOOT GPIO%d held for %d ms during boot; forcing AP provisioning for this boot",
+                 CONFIG_APP_WIFI_FORCE_PROVISION_GPIO,
+                 CONFIG_APP_WIFI_FORCE_PROVISION_HOLD_MS);
+        return true;
+    }
+
+    return false;
+}
+
+static void main_boot_button_monitor_task(void *arg)
+{
+    (void)arg;
+#if CONFIG_APP_WIFI_FORCE_PROVISION_GPIO >= 0
+    uint32_t held_ms = 0;
+    bool fired = false;
+
+    while (1) {
+        bool held = gpio_get_level((gpio_num_t)CONFIG_APP_WIFI_FORCE_PROVISION_GPIO) == 0;
+
+        if (held) {
+            if (held_ms < CONFIG_APP_WIFI_FORCE_PROVISION_HOLD_MS) {
+                held_ms += 100;
+            }
+            if (!fired && held_ms >= CONFIG_APP_WIFI_FORCE_PROVISION_HOLD_MS) {
+                fired = true;
+                s_force_provision_magic = APP_FORCE_PROVISION_MAGIC;
+                ESP_LOGW(TAG,
+                         "BOOT GPIO%d held for %d ms; restarting into AP provisioning without clearing saved Wi-Fi",
+                         CONFIG_APP_WIFI_FORCE_PROVISION_GPIO,
+                         CONFIG_APP_WIFI_FORCE_PROVISION_HOLD_MS);
+                vTaskDelay(pdMS_TO_TICKS(300));
+                esp_restart();
+            }
+        } else {
+            held_ms = 0;
+            fired = false;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+#else
+    vTaskDelete(NULL);
+#endif
+}
+
+static void main_start_boot_button_monitor(void)
+{
+    if (!main_boot_button_configured() || s_force_provision_this_boot) {
+        return;
+    }
+
+    BaseType_t ok = xTaskCreate(main_boot_button_monitor_task,
+                                "boot_button",
+                                2048,
+                                NULL,
+                                3,
+                                NULL);
+    if (ok != pdPASS) {
+        ESP_LOGW(TAG, "Failed to create BOOT button monitor task");
+    } else {
+        ESP_LOGI(TAG,
+                 "BOOT GPIO%d long press (%d ms) will force Wi-Fi provisioning on next boot",
+                 CONFIG_APP_WIFI_FORCE_PROVISION_GPIO,
+                 CONFIG_APP_WIFI_FORCE_PROVISION_HOLD_MS);
     }
 }
 
@@ -262,7 +408,12 @@ void app_main(void)
     app_config_to_claw(s_config, s_claw_config);
     init_timezone(app_config_get_timezone(s_config)); // no need to check error
     ESP_ERROR_CHECK(esp_board_manager_init());
+    ESP_ERROR_CHECK(main_configure_boot_button_gpio());
+    s_force_provision_this_boot = main_take_force_provision_request();
     ESP_ERROR_CHECK(app_claw_ui_start());
+    if (app_status_led_init() != ESP_OK) {
+        ESP_LOGW(TAG, "Status LED initialization failed; continuing without LED status");
+    }
     ESP_ERROR_CHECK(app_fs_init());
 
     /* Publish the resolved storage roots so any component can compose paths
@@ -289,10 +440,13 @@ void app_main(void)
     ESP_ERROR_CHECK(wifi_manager_register_state_callback(on_wifi_state_changed, NULL));
 
     log_wifi_startup_config(s_config);
+    if (s_force_provision_this_boot) {
+        ESP_LOGW(TAG, "Force provisioning is active for this boot; saved STA credentials remain unchanged");
+    }
 
     esp_err_t wifi_err = wifi_manager_start(&(wifi_manager_config_t) {
-        .sta_ssid = s_config->wifi_ssid,
-        .sta_password = s_config->wifi_password,
+        .sta_ssid = s_force_provision_this_boot ? "" : s_config->wifi_ssid,
+        .sta_password = s_force_provision_this_boot ? "" : s_config->wifi_password,
         .ap_ssid = s_config->ap_ssid[0] ? s_config->ap_ssid : NULL,
         .ap_password = s_config->ap_password[0] ? s_config->ap_password : NULL,
         .ap_behavior = s_config->ap_behavior,
@@ -308,7 +462,7 @@ void app_main(void)
             ESP_LOGW(TAG, "Captive DNS could not start, portal pop-up disabled");
         }
 
-        if (s_config->wifi_ssid[0] != '\0') {
+        if (!s_force_provision_this_boot && s_config->wifi_ssid[0] != '\0') {
             esp_err_t wait_err = wifi_manager_wait_connected(30000);
             if (wait_err == ESP_OK) {
                 wifi_manager_status_t status = {0};
@@ -337,6 +491,8 @@ void app_main(void)
 
         wifi_manager_status_t status = {0};
         wifi_manager_get_status(&status);
+        app_status_led_set_provisioning(status.ap_active && !status.sta_connected);
+        http_server_log_admin_auth_hint();
         if (status.ap_active) {
             const char *portal_auth = s_config->ap_password[0] ? "wpa2" : "open";
             ESP_LOGW(TAG,
@@ -347,6 +503,8 @@ void app_main(void)
                      status.ap_ip);
         }
     }
+
+    main_start_boot_button_monitor();
 
     ESP_ERROR_CHECK(app_claw_start(s_claw_config));
 #if CONFIG_APP_CLAW_CAP_IM_LOCAL

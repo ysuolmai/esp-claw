@@ -9,6 +9,10 @@
 
 static esp_err_t capabilities_get_handler(httpd_req_t *req)
 {
+    if (http_server_require_admin(req) != ESP_OK) {
+        return ESP_OK;
+    }
+
     const app_capability_group_info_t *groups = NULL;
     size_t group_count = 0;
     cJSON *root = NULL;

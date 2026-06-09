@@ -18,19 +18,25 @@ type BasicForm = {
   ap_ssid: string;
   ap_password: string;
   ap_behavior: string;
+  admin_username: string;
+  admin_password: string;
+  voice_server_url: string;
   time_timezone: string;
 };
 
 export const BasicPage: Component<{ onRestartRequest: () => void }> = (props) => {
   const tab = createConfigTab<BasicForm>({
     tab: 'basic',
-    groups: ['wifi', 'time'],
+    groups: ['wifi', 'security', 'voice', 'time'],
     toForm: (config: Partial<AppConfig>) => ({
       wifi_ssid: config.wifi_ssid ?? '',
       wifi_password: config.wifi_password ?? '',
       ap_ssid: config.ap_ssid ?? '',
       ap_password: config.ap_password ?? '',
-      ap_behavior: config.ap_behavior ?? 'keep',
+      ap_behavior: config.ap_behavior ?? 'close_on_sta',
+      admin_username: config.admin_username ?? 'admin',
+      admin_password: config.admin_password ?? '',
+      voice_server_url: config.voice_server_url ?? '',
       time_timezone: config.time_timezone ?? '',
     }),
     fromForm: (form) => ({
@@ -39,6 +45,9 @@ export const BasicPage: Component<{ onRestartRequest: () => void }> = (props) =>
       ap_ssid: form.ap_ssid.trim(),
       ap_password: form.ap_password,
       ap_behavior: form.ap_behavior,
+      admin_username: form.admin_username.trim(),
+      admin_password: form.admin_password,
+      voice_server_url: form.voice_server_url.trim(),
       time_timezone: form.time_timezone.trim(),
     }),
   });
@@ -50,6 +59,9 @@ export const BasicPage: Component<{ onRestartRequest: () => void }> = (props) =>
     void tab.form.wifi_password;
     void tab.form.ap_ssid;
     void tab.form.ap_password;
+    void tab.form.admin_username;
+    void tab.form.admin_password;
+    void tab.form.voice_server_url;
     setValidationError(null);
   });
 
@@ -57,6 +69,7 @@ export const BasicPage: Component<{ onRestartRequest: () => void }> = (props) =>
     const wifiSsid = tab.form.wifi_ssid.trim();
     const wifiPassword = tab.form.wifi_password;
     const apPassword = tab.form.ap_password;
+    const adminPassword = tab.form.admin_password;
 
     if (!wifiSsid) {
       const message = t('wifiValidationSsidRequired') as string;
@@ -74,6 +87,15 @@ export const BasicPage: Component<{ onRestartRequest: () => void }> = (props) =>
 
     if (apPassword.length > 0 && apPassword.length < 8) {
       const message = t('apValidationPasswordLength') as string;
+      setValidationError(message);
+      pushToast(message, 'error', 5000);
+      return;
+    }
+
+    if (adminPassword.length > 0 &&
+        adminPassword !== '__esp_claw_secret_set__' &&
+        adminPassword.length < 8) {
+      const message = t('adminPasswordLength') as string;
       setValidationError(message);
       pushToast(message, 'error', 5000);
       return;
@@ -159,7 +181,29 @@ export const BasicPage: Component<{ onRestartRequest: () => void }> = (props) =>
           </div>
         </StaticConfigBlock>
         <CollapsibleConfigBlock title={t('sectionAdvanced') as string} defaultOpen={false}>
-          <div class="pt-2">
+          <div class="grid gap-3 sm:grid-cols-2 pt-2">
+            <TextInput
+              label={t('adminUsername')}
+              autocomplete="username"
+              value={tab.form.admin_username}
+              onInput={(event) => tab.setForm('admin_username', event.currentTarget.value)}
+            />
+            <TextInput
+              type="password"
+              label={t('adminPassword')}
+              autocomplete="new-password"
+              hint={t('adminPasswordHint') as string}
+              value={tab.form.admin_password}
+              onInput={(event) => tab.setForm('admin_password', event.currentTarget.value)}
+            />
+            <TextInput
+              full
+              type="url"
+              label={t('voiceServerUrl')}
+              placeholder={t('voiceServerUrlPlaceholder') as string}
+              value={tab.form.voice_server_url}
+              onInput={(event) => tab.setForm('voice_server_url', event.currentTarget.value)}
+            />
             <TextInput
               full
               label={t('timezone')}

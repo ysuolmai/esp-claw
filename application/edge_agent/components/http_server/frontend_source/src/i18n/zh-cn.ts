@@ -72,6 +72,12 @@ export const zhCn: Dict = {
   apBehavior: 'AP 行为',
   apBehaviorKeep: '保持开启',
   apBehaviorCloseOnSta: '连接 Wi-Fi 后关闭',
+  adminUsername: 'Admin 用户名',
+  adminPassword: 'Admin 密码',
+  adminPasswordHint: '留空会保留旧密码。只用于 STA/LAN 管理页登录。',
+  adminPasswordLength: 'Admin 密码留空或至少 8 个字符。',
+  voiceServerUrl: '语音服务器 URL',
+  voiceServerUrlPlaceholder: 'ws://192.168.1.10:8080/ws/voice',
 
   sectionStatusNetwork: '网络信息',
   sectionStatusStorage: '储存信息',

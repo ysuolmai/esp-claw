@@ -71,6 +71,12 @@ export const en = {
   apBehavior: 'AP Behavior',
   apBehaviorKeep: 'Keep On',
   apBehaviorCloseOnSta: 'Turn Off After Wi-Fi Connects',
+  adminUsername: 'Admin Username',
+  adminPassword: 'Admin Password',
+  adminPasswordHint: 'Leave empty to keep the existing password. Used only on the STA/LAN admin page.',
+  adminPasswordLength: 'Admin password must be empty or at least 8 characters long.',
+  voiceServerUrl: 'Voice Server URL',
+  voiceServerUrlPlaceholder: 'ws://192.168.1.10:8080/ws/voice',
 
   sectionStatusNetwork: 'Network',
   sectionStatusStorage: 'Storage',

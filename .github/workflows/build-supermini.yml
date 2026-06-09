@@ -35,61 +35,58 @@ jobs:
           grep -E 'CONFIG_(ESPTOOLPY_FLASHSIZE_4MB|PARTITION_TABLE_CUSTOM_FILENAME|SPIRAM_MODE_QUAD|APP_CLAW_CAP_(IM_PLATFORM|IM_TG|MCP_CLIENT|MCP_SERVER|SCHEDULER|LLM_INSPECT|WEB_SEARCH)|APP_CLAW_LUA_DRIVER_(MCPWM|PCNT|TOUCH)|APP_CLAW_LUA_MODULE_(ENVIRONMENTAL_SENSOR|FUEL_GAUGE|IMU|IR|KNOB|MAGNETOMETER|LVGL)|BT_ENABLED)=' sdkconfig || true
           idf.py build
 
-      - name: Create merged firmware image
+      - name: Create firmware images
         run: |
           . /opt/esp/idf/export.sh
+
+          # First-flash image: one file for a blank board. This includes the
+          # high-offset FAT system/storage partitions, so it is intentionally
+          # close to 4 MB.
           esptool.py --chip esp32s3 merge_bin \
-            -o build/merged-binary.bin \
+            -o build/esp-claw-esp32-s3-supermini-factory-full-merged.bin \
             --flash_mode dio \
             --flash_freq 80m \
             --flash_size 4MB \
             0x0 build/bootloader/bootloader.bin \
             0x9000 build/partition_table/partition-table.bin \
             0x20000 build/edge_agent.bin \
-            0x300000 build/system.bin
-          ls -lh build/merged-binary.bin
+            0x300000 build/system.bin \
+            0x3c0000 build/storage.bin
 
-      - name: Create no-settings upgrade image
-        run: |
-          . /opt/esp/idf/export.sh
-          python - <<'PY'
-          from pathlib import Path
+          cp build/bootloader/bootloader.bin build/esp-claw-esp32-s3-supermini-bootloader.bin
+          cp build/partition_table/partition-table.bin build/esp-claw-esp32-s3-supermini-partition-table.bin
+          cp build/edge_agent.bin build/esp-claw-esp32-s3-supermini-app.bin
+          cp build/system.bin build/esp-claw-esp32-s3-supermini-system.bin
+          cp build/storage.bin build/esp-claw-esp32-s3-supermini-storage.bin
+          # ESP-Claw uses FAT for writable storage, not SPIFFS. Keep this
+          # compatibility alias because many SuperMini flashing guides expect
+          # a separately uploaded spiffs.bin.
+          cp build/storage.bin build/spiffs.bin
 
-          build = Path("build")
-          upgrade = build / "upgrade-no-settings.bin"
-          app = (build / "edge_agent.bin").read_bytes()
-          system = (build / "system.bin").read_bytes()
-          system_offset = 0x300000 - 0x20000
-          system_end = system_offset + len(system)
-          image = bytearray(b"\xff" * system_end)
-          image[0:len(app)] = app
-          image[system_offset:system_end] = system
-          upgrade.write_bytes(image)
+          cat > build/first-flash-command.txt <<'EOF'
+          python -m esptool --chip esp32s3 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 4MB --flash_freq 80m 0x0 esp-claw-esp32-s3-supermini-factory-full-merged.bin
+          EOF
 
-          pre_app_gap = build / "pre-app-gap-blank.bin"
-          pre_app_gap.write_bytes(b"\xff" * 0x10000)
+          cat > build/upgrade-no-settings-command.txt <<'EOF'
+          python -m esptool --chip esp32s3 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 4MB --flash_freq 80m 0x0 esp-claw-esp32-s3-supermini-bootloader.bin 0x9000 esp-claw-esp32-s3-supermini-partition-table.bin 0x20000 esp-claw-esp32-s3-supermini-app.bin 0x300000 esp-claw-esp32-s3-supermini-system.bin
+          EOF
 
-          command = (
-              "python -m esptool --chip esp32s3 -b 460800 "
-              "--before default_reset --after hard_reset write_flash "
-              "--flash_mode dio --flash_size 4MB --flash_freq 80m "
-              "0x0 bootloader/bootloader.bin "
-              "0x9000 partition_table/partition-table.bin "
-              "0x10000 pre-app-gap-blank.bin "
-              "0x20000 upgrade-no-settings.bin\n"
-          )
-          (build / "upgrade-no-settings-command.txt").write_text(command, encoding="utf-8")
-          (build / "upgrade-no-settings-readme.txt").write_text(
-              "Flash these files from the build directory to update firmware and system resources "
-              "without erasing the existing NVS settings area at 0xA000-0xFFFF or the writable "
-              "storage partition at 0x3C0000. The bootloader and partition table are updated, "
-              "but they do not overlap the preserved settings region. The pre-app-gap-blank.bin "
-              "file clears 0x10000-0x1FFFF, covering the new NVS extension area plus phy_init "
-              "and reserved pre-app space before the new partition table starts using it.\n\n" + command,
-              encoding="utf-8",
-          )
-          PY
-          ls -lh build/upgrade-no-settings.bin build/pre-app-gap-blank.bin
+          cat > build/upgrade-no-settings-readme.txt <<'EOF'
+          Use upgrade-no-settings-command.txt for normal upgrades. This deliberately uses separate offset writes instead of a 0x0 merged image, because a 0x0 merged image would contain 0xff padding across the NVS settings partition.
+
+          The command updates bootloader, partition table, app, and esp-claw-esp32-s3-supermini-system.bin at 0x300000 without touching NVS settings at 0xA000-0x19FFF or writable storage at 0x3C0000.
+
+          To reset user files, flash esp-claw-esp32-s3-supermini-storage.bin or spiffs.bin separately at 0x3c0000.
+          EOF
+
+          ls -lh \
+            build/esp-claw-esp32-s3-supermini-factory-full-merged.bin \
+            build/esp-claw-esp32-s3-supermini-bootloader.bin \
+            build/esp-claw-esp32-s3-supermini-partition-table.bin \
+            build/esp-claw-esp32-s3-supermini-app.bin \
+            build/esp-claw-esp32-s3-supermini-system.bin \
+            build/esp-claw-esp32-s3-supermini-storage.bin \
+            build/spiffs.bin
 
       - name: Show image sizes
         if: always()
@@ -104,6 +101,16 @@ jobs:
         with:
           name: esp32-s3-supermini-firmware
           path: |
+            application/edge_agent/build/esp-claw-esp32-s3-supermini-factory-full-merged.bin
+            application/edge_agent/build/esp-claw-esp32-s3-supermini-bootloader.bin
+            application/edge_agent/build/esp-claw-esp32-s3-supermini-partition-table.bin
+            application/edge_agent/build/esp-claw-esp32-s3-supermini-app.bin
+            application/edge_agent/build/esp-claw-esp32-s3-supermini-system.bin
+            application/edge_agent/build/esp-claw-esp32-s3-supermini-storage.bin
+            application/edge_agent/build/spiffs.bin
+            application/edge_agent/build/first-flash-command.txt
+            application/edge_agent/build/upgrade-no-settings-command.txt
+            application/edge_agent/build/upgrade-no-settings-readme.txt
             application/edge_agent/build/*.bin
             application/edge_agent/build/partition_table/*.bin
             application/edge_agent/build/bootloader/*.bin
@@ -116,9 +123,9 @@ jobs:
         with:
           name: esp32-s3-supermini-upgrade-no-settings
           path: |
-            application/edge_agent/build/upgrade-no-settings.bin
-            application/edge_agent/build/pre-app-gap-blank.bin
+            application/edge_agent/build/esp-claw-esp32-s3-supermini-bootloader.bin
+            application/edge_agent/build/esp-claw-esp32-s3-supermini-partition-table.bin
+            application/edge_agent/build/esp-claw-esp32-s3-supermini-app.bin
+            application/edge_agent/build/esp-claw-esp32-s3-supermini-system.bin
             application/edge_agent/build/upgrade-no-settings-command.txt
             application/edge_agent/build/upgrade-no-settings-readme.txt
-            application/edge_agent/build/bootloader/bootloader.bin
-            application/edge_agent/build/partition_table/partition-table.bin

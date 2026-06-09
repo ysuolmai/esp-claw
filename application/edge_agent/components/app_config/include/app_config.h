@@ -18,6 +18,9 @@ extern "C" {
 #define APP_WIFI_SSID             CONFIG_APP_WIFI_SSID
 #define APP_WIFI_PASSWORD         CONFIG_APP_WIFI_PASSWORD
 #define APP_SEARCH_HTTP_ALLOWLIST CONFIG_APP_SEARCH_HTTP_ALLOWLIST
+#define APP_ADMIN_USERNAME        CONFIG_APP_ADMIN_USERNAME
+#define APP_ADMIN_PASSWORD        CONFIG_APP_ADMIN_PASSWORD
+#define APP_VOICE_SERVER_URL      CONFIG_APP_VOICE_SERVER_URL
 
 typedef struct {
     char wifi_ssid[APP_CONFIG_STR_LEN];
@@ -50,6 +53,9 @@ typedef struct {
     char search_brave_key[APP_CONFIG_STR_LEN];
     char search_tavily_key[APP_CONFIG_STR_LEN];
     char search_http_allowlist[APP_CONFIG_STR_LEN];
+    char admin_username[32];
+    char admin_password[64];
+    char voice_server_url[APP_CONFIG_STR_LEN];
     char enabled_cap_groups[APP_CONFIG_STR_LEN];
     char llm_visible_cap_groups[APP_CONFIG_STR_LEN];
     char enabled_lua_modules[APP_CONFIG_STR_LEN];

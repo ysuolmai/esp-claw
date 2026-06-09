@@ -101,6 +101,7 @@ esp_err_t http_server_start(void)
     ESP_RETURN_ON_ERROR(http_server_register_webim_routes(s_ctx.server), TAG, "Failed to register Web IM routes");
     ESP_RETURN_ON_ERROR(httpd_register_err_handler(s_ctx.server, HTTPD_404_NOT_FOUND, http_server_captive_404_handler),
                         TAG, "Failed to register captive 404 handler");
+    http_server_log_admin_auth_hint();
 
     return ESP_OK;
 }

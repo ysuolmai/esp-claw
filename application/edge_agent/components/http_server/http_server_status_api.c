@@ -7,6 +7,10 @@
 
 static esp_err_t status_handler(httpd_req_t *req)
 {
+    if (http_server_require_admin(req) != ESP_OK) {
+        return ESP_OK;
+    }
+
     http_server_ctx_t *ctx = http_server_ctx();
     http_server_wifi_status_t status = {0};
     esp_err_t err = ctx->services.get_wifi_status(&status);
@@ -32,6 +36,10 @@ static esp_err_t status_handler(httpd_req_t *req)
 
 static esp_err_t restart_handler(httpd_req_t *req)
 {
+    if (http_server_require_admin(req) != ESP_OK) {
+        return ESP_OK;
+    }
+
     http_server_ctx_t *ctx = http_server_ctx();
     esp_err_t err = ctx->services.restart_device ? ctx->services.restart_device() : ESP_ERR_NOT_SUPPORTED;
     if (err != ESP_OK) {

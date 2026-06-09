@@ -13,6 +13,9 @@ extern const uint8_t favicon_ico_end[]   asm("_binary_favicon_ico_end");
 
 static esp_err_t favicon_handler(httpd_req_t *req)
 {
+    if (http_server_require_admin(req) != ESP_OK) {
+        return ESP_OK;
+    }
     return http_server_send_embedded_file(req,
                                           favicon_ico_start,
                                           favicon_ico_end,
@@ -21,6 +24,9 @@ static esp_err_t favicon_handler(httpd_req_t *req)
 
 static esp_err_t index_handler(httpd_req_t *req)
 {
+    if (http_server_require_admin(req) != ESP_OK) {
+        return ESP_OK;
+    }
     httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
     httpd_resp_set_hdr(req, "Vary", "Accept-Encoding");
     return http_server_send_embedded_file(req,

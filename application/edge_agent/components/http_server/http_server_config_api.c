@@ -70,6 +70,11 @@ static const config_field_def_t CONFIG_FIELDS[] = {
     CONFIG_FIELD("search",       search_tavily_key),
     CONFIG_FIELD("search",       search_http_allowlist),
 
+    CONFIG_FIELD("security",     admin_username),
+    CONFIG_FIELD("security",     admin_password),
+
+    CONFIG_FIELD("voice",        voice_server_url),
+
     CONFIG_FIELD("capabilities", enabled_cap_groups),
     CONFIG_FIELD("capabilities", llm_visible_cap_groups),
 
@@ -81,6 +86,7 @@ static const config_field_def_t CONFIG_FIELDS[] = {
 static const size_t CONFIG_FIELD_COUNT = sizeof(CONFIG_FIELDS) / sizeof(CONFIG_FIELDS[0]);
 
 static const char *TAG = "http_config_api";
+static const char *SECRET_PLACEHOLDER = "__esp_claw_secret_set__";
 
 /* ── Helpers ────────────────────────────────────────────────────────── */
 
@@ -140,6 +146,21 @@ static char *field_mutable(app_config_t *config, const config_field_def_t *field
     return ((char *)config) + field->offset;
 }
 
+static bool config_field_is_secret(const char *name)
+{
+    return name &&
+           (strcmp(name, "wifi_password") == 0 ||
+            strcmp(name, "ap_password") == 0 ||
+            strcmp(name, "llm_api_key") == 0 ||
+            strcmp(name, "qq_app_secret") == 0 ||
+            strcmp(name, "feishu_app_secret") == 0 ||
+            strcmp(name, "tg_bot_token") == 0 ||
+            strcmp(name, "wechat_token") == 0 ||
+            strcmp(name, "search_brave_key") == 0 ||
+            strcmp(name, "search_tavily_key") == 0 ||
+            strcmp(name, "admin_password") == 0);
+}
+
 static bool is_positive_decimal_string(const char *value)
 {
     const unsigned char *cursor = (const unsigned char *)value;
@@ -192,7 +213,11 @@ static esp_err_t emit_config(httpd_req_t *req,
         if (!field_matches_filter(field, groups_csv, fields_csv)) {
             continue;
         }
-        http_server_json_add_string(root, field->name, field_value(config, field));
+        const char *value = field_value(config, field);
+        if (config_field_is_secret(field->name)) {
+            value = value[0] ? SECRET_PLACEHOLDER : "";
+        }
+        http_server_json_add_string(root, field->name, value);
     }
 
     if (extra_meta) {
@@ -206,6 +231,10 @@ static esp_err_t emit_config(httpd_req_t *req,
 
 static esp_err_t config_get_handler(httpd_req_t *req)
 {
+    if (http_server_require_admin(req) != ESP_OK) {
+        return ESP_OK;
+    }
+
     http_server_ctx_t *ctx = http_server_ctx();
     app_config_t *config = NULL;
     esp_err_t err;
@@ -287,6 +316,10 @@ static esp_err_t config_get_handler(httpd_req_t *req)
 
 static esp_err_t config_post_handler(httpd_req_t *req)
 {
+    if (http_server_require_admin(req) != ESP_OK) {
+        return ESP_OK;
+    }
+
     http_server_ctx_t *ctx = http_server_ctx();
     app_config_t *config = NULL;
     esp_err_t err;
@@ -311,7 +344,8 @@ static esp_err_t config_post_handler(httpd_req_t *req)
     }
 
     /* Partial writes: only fields present in the JSON body are applied.
-     * Empty string is a valid value (lets the client clear a slot). */
+     * Empty secret fields are ignored so a partially loaded page cannot
+     * accidentally erase API keys, Wi-Fi passwords, bot tokens, or admin auth. */
     size_t applied_count = 0;
 
     for (size_t i = 0; i < CONFIG_FIELD_COUNT; i++) {
@@ -341,6 +375,13 @@ static esp_err_t config_post_handler(httpd_req_t *req)
             return httpd_resp_send_err(req,
                                        HTTPD_400_BAD_REQUEST,
                                        "LLM boolean fields must be true/false");
+        }
+        if (config_field_is_secret(field->name) &&
+                (item->valuestring[0] == '\0' ||
+                 strcmp(item->valuestring, SECRET_PLACEHOLDER) == 0)) {
+            applied_count++;
+            ESP_LOGI(TAG, "Kept %s (empty secret field ignored)", field->name);
+            continue;
         }
         strlcpy(field_mutable(config, field), item->valuestring, field->size);
         applied_count++;

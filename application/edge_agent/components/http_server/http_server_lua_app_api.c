@@ -9,11 +9,17 @@
 
 static esp_err_t lua_static_handler(httpd_req_t *req)
 {
+    if (http_server_require_admin(req) != ESP_OK) {
+        return ESP_OK;
+    }
     return lua_module_http_server_handle_static(req);
 }
 
 static esp_err_t lua_api_handler(httpd_req_t *req)
 {
+    if (http_server_require_admin(req) != ESP_OK) {
+        return ESP_OK;
+    }
     return lua_module_http_server_handle_api(req);
 }
 

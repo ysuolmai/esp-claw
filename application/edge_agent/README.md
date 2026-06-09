@@ -91,3 +91,6 @@ firmware artifacts, Wi-Fi provisioning, INMP441/MAX98357A wiring, the local
 voice proxy, sherpa-onnx setup, and custom OpenAI-compatible base URLs:
 
 - [ESP32-S3 SuperMini Quick Start](./boards/espressif/esp32_S3_Super_Mini/README.md)
+- [ESP32-S3 SuperMini Firmware Profile](../../docs/ESP32_S3_SUPERMINI.md)
+- [Wi-Fi Onboarding AP](../../docs/WIFI_ONBOARDING_AP.md)
+- [ESP32-S3 SuperMini Voice Hardware](../../docs/ESP32_S3_HARDWARE_VOICE.md)

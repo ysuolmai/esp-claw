@@ -57,6 +57,9 @@ typedef struct {
 #define APP_DEFAULT_WECHAT_ACCOUNT_ID        "default"
 #define APP_DEFAULT_SEARCH_BRAVE_KEY         ""
 #define APP_DEFAULT_SEARCH_TAVILY_KEY        ""
+#define APP_DEFAULT_ADMIN_USERNAME           APP_ADMIN_USERNAME
+#define APP_DEFAULT_ADMIN_PASSWORD           APP_ADMIN_PASSWORD
+#define APP_DEFAULT_VOICE_SERVER_URL         APP_VOICE_SERVER_URL
 #define APP_DEFAULT_ENABLED_CAP_GROUPS       ""
 #define APP_DEFAULT_LLM_VISIBLE_CAP_GROUPS   ""
 #define APP_DEFAULT_ENABLED_LUA_MODULES      ""
@@ -67,7 +70,7 @@ static const app_config_field_t s_fields[] = {
     APP_CONFIG_FIELD(wifi_password, "wifi_password", APP_WIFI_PASSWORD),
     APP_CONFIG_FIELD(ap_ssid, "ap_ssid", ""),
     APP_CONFIG_FIELD(ap_password, "ap_password", ""),
-    APP_CONFIG_FIELD(ap_behavior, "ap_behavior", "keep"),
+    APP_CONFIG_FIELD(ap_behavior, "ap_behavior", "close_on_sta"),
     APP_CONFIG_FIELD(llm_api_key, "llm_api_key", APP_DEFAULT_LLM_API_KEY),
     APP_CONFIG_FIELD(llm_backend_type, "llm_backend", APP_DEFAULT_LLM_BACKEND_TYPE),
     APP_CONFIG_FIELD(llm_model, "llm_model", APP_DEFAULT_LLM_MODEL),
@@ -93,6 +96,9 @@ static const app_config_field_t s_fields[] = {
     APP_CONFIG_FIELD(search_brave_key, "brave_key", APP_DEFAULT_SEARCH_BRAVE_KEY),
     APP_CONFIG_FIELD(search_tavily_key, "tavily_key", APP_DEFAULT_SEARCH_TAVILY_KEY),
     APP_CONFIG_FIELD(search_http_allowlist, "http_allow_ls", APP_SEARCH_HTTP_ALLOWLIST),
+    APP_CONFIG_FIELD(admin_username, "admin_user", APP_DEFAULT_ADMIN_USERNAME),
+    APP_CONFIG_FIELD(admin_password, "admin_pass", APP_DEFAULT_ADMIN_PASSWORD),
+    APP_CONFIG_FIELD(voice_server_url, "voice_ws_url", APP_DEFAULT_VOICE_SERVER_URL),
     APP_CONFIG_FIELD(enabled_cap_groups, "en_cap_groups", APP_DEFAULT_ENABLED_CAP_GROUPS),
     APP_CONFIG_FIELD(llm_visible_cap_groups, "vis_cap_groups", APP_DEFAULT_LLM_VISIBLE_CAP_GROUPS),
     APP_CONFIG_FIELD(enabled_lua_modules, "en_lua_mods", APP_DEFAULT_ENABLED_LUA_MODULES),

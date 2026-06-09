@@ -1,6 +1,6 @@
 # ESP32-S3 SuperMini Quick Start
 
-This board profile targets the ESP32-S3 SuperMini / ESP32-S3FH4R2 variant with
+This board profile targets ESP32-S3 SuperMini / ESP32-S3FH4R2 boards with
 4 MB flash and 2 MB PSRAM.
 
 ## Hardware
@@ -18,45 +18,67 @@ Audio wiring follows the `xiaozhi-esp32s3-supermini` style simplex I2S layout:
 | On-board WS2812 | RGB LED | GPIO48 |
 | On-board BOOT | Button | GPIO0 |
 
+The status LED stays off during normal operation and slowly blinks only while
+the provisioning AP is active. The board power LED, if present, is usually
+wired directly to power and is not firmware-controlled.
+
 ## Firmware Artifacts
 
-The GitHub Actions workflow `Build ESP32-S3 SuperMini` publishes two artifacts:
+The GitHub Actions workflow `Build ESP32-S3 SuperMini` publishes:
 
-- `esp32-s3-supermini-firmware`: normal build output, including individual
-  binaries and `merged-binary.bin`.
-- `esp32-s3-supermini-upgrade-no-settings`: upgrade package that updates the
-  bootloader, partition table, app, and system image while preserving the old
-  settings area and the writable storage partition.
+- `esp32-s3-supermini-firmware`: full build output, including the one-file
+  first-flash image and individual binaries.
+- `esp32-s3-supermini-upgrade-no-settings`: a normal upgrade package that does
+  not touch NVS settings or writable storage.
 
-For a normal first flash, use the individual binaries from
-`esp32-s3-supermini-firmware`:
+### First flash on a blank board
 
-```bash
-python -m esptool --chip esp32s3 -b 460800 \
-  --before default_reset --after hard_reset write_flash \
-  --flash_mode dio --flash_size 4MB --flash_freq 80m \
-  0x0 bootloader/bootloader.bin \
-  0x9000 partition_table/partition-table.bin \
-  0x20000 edge_agent.bin \
-  0x300000 system.bin \
-  0x3c0000 storage.bin
-```
-
-`merged-binary.bin` can also be flashed at `0x0`:
+For a blank board, use the one-file factory image:
 
 ```bash
 python -m esptool --chip esp32s3 -b 460800 \
   --before default_reset --after hard_reset write_flash \
   --flash_mode dio --flash_size 4MB --flash_freq 80m \
-  0x0 merged-binary.bin
+  0x0 esp-claw-esp32-s3-supermini-factory-full-merged.bin
 ```
 
-The merged image ends at `0x3c0000`; it intentionally does not contain the
-writable `storage` partition.
+This file includes bootloader, partition table, app, `system.bin`, and the
+initial writable storage image. Because `system` and `storage` live near the end
+of flash, this factory image is intentionally close to 4 MB.
 
-For an upgrade that keeps existing settings, download
-`esp32-s3-supermini-upgrade-no-settings` and run the command included in
-`upgrade-no-settings-command.txt`.
+### Upgrade without erasing settings
+
+For normal upgrades after first flash, use the command included in
+`upgrade-no-settings-command.txt`:
+
+```bash
+python -m esptool --chip esp32s3 -b 460800 \
+  --before default_reset --after hard_reset write_flash \
+  --flash_mode dio --flash_size 4MB --flash_freq 80m \
+  0x0 esp-claw-esp32-s3-supermini-bootloader.bin \
+  0x9000 esp-claw-esp32-s3-supermini-partition-table.bin \
+  0x20000 esp-claw-esp32-s3-supermini-app.bin \
+  0x300000 esp-claw-esp32-s3-supermini-system.bin
+```
+
+There is deliberately no `0x0` merged upgrade image for this path. A `0x0`
+merged image would contain padding across `0xA000-0x19FFF` and would erase the
+64 KB NVS settings partition.
+
+### Reset writable files
+
+ESP-Claw uses a FAT writable storage partition at `0x3C0000`. The workflow also
+uploads `spiffs.bin` as a compatibility alias for flashing tools that expect
+that name, but it is the same FAT storage image.
+
+Flash it only when you want to reset user files:
+
+```bash
+python -m esptool --chip esp32s3 -b 460800 \
+  --before default_reset --after hard_reset write_flash \
+  --flash_mode dio --flash_size 4MB --flash_freq 80m \
+  0x3c0000 esp-claw-esp32-s3-supermini-storage.bin
+```
 
 ## Wi-Fi Provisioning
 
@@ -70,37 +92,35 @@ Auth: open by default, WPA2 if ap_password is configured
 ```
 
 Connect a phone or computer to that AP, then open `http://192.168.4.1/`.
-The captive portal DNS is enabled, so many clients will also show a setup page
+The captive portal DNS is enabled, so many clients will also show the setup page
 automatically.
 
-Set these fields in the Web UI:
+After STA Wi-Fi connects, the AP closes by default (`ap_behavior=close_on_sta`).
+Hold BOOT for 5 seconds to restart into AP provisioning on the next boot. This
+does not erase the saved SSID or password; it only skips STA for that boot.
 
-- `wifi_ssid`
-- `wifi_password`
-- optional `ap_ssid`
-- optional `ap_password`
-- optional `ap_behavior`
+## Web Admin Security
 
-`ap_behavior` accepts:
+The Web Admin is open only while the board is in first-time/forced provisioning
+AP mode. After STA networking is active, HTTP Basic Auth is required.
 
-- `keep`: keep AP mode available after STA connects.
-- `close_on_sta`: close AP mode after STA gets an IP.
+Credential priority:
 
-Saving Web UI config stores the values in NVS. Restart the board to apply Wi-Fi,
-core LLM, capability, and Lua module changes.
+1. NVS values saved from Web Admin.
+2. Build-time defaults from Kconfig.
+3. Generated fallback credentials.
 
-You can also configure Wi-Fi from the serial console:
+The default username is `admin`. If no password is configured, the fallback
+password is `esp-claw-XXXX`, where `XXXX` matches the AP suffix. The firmware
+prints the active login hint to the serial log.
 
-```text
-wifi --status
-wifi --scan
-wifi --set --ssid MyWiFi --password MyPassword --apply
-```
+Secret fields such as Wi-Fi password, LLM API key, Telegram token, search keys,
+and admin password are not returned by `/api/config`. Leaving a secret field
+blank in Web Admin keeps the old value.
 
-## Device LLM Base URL
+## OpenAI-Compatible Base URL
 
-ESP-Claw's on-device Agent uses its own LLM settings. For a non-official
-OpenAI-compatible API, set:
+For a third-party OpenAI-compatible API, configure:
 
 ```text
 llm_backend_type = openai_compatible
@@ -110,75 +130,38 @@ llm_api_key      = your-key
 llm_auth_type    = bearer
 ```
 
-These fields can be saved from the Web UI or by posting to `/api/config`:
+These fields are available in Web Admin and are stored in NVS.
 
-```bash
-curl -X POST http://192.168.4.1/api/config \
-  -H "Content-Type: application/json" \
-  -d '{
-    "llm_backend_type": "openai_compatible",
-    "llm_base_url": "https://api.example.com/v1",
-    "llm_model": "your-model-name",
-    "llm_api_key": "your-key",
-    "llm_auth_type": "bearer"
-  }'
-```
+## Telegram
 
-This is separate from the voice proxy settings below.
+Telegram is enabled in this SuperMini profile. Set `tg_bot_token` in Web Admin
+or through `/api/config`. Empty token fields are ignored on save so an existing
+token is not accidentally cleared by a partial update.
 
 ## Voice Server
 
 The firmware includes `/system/scripts/voice_stream_supermini.lua`. It streams
 16 kHz mono Opus frames to a LAN WebSocket server and plays Opus frames returned
-by that server.
+by that server. STT/TTS runs on the external server, not on the ESP32-S3.
 
-Start the reference voice proxy on a LAN machine:
+Start the reference proxy on a LAN machine:
 
 ```bash
 cd tools/voice-proxy
 docker compose up --build
 ```
 
-Health check:
+Configure `voice_server_url` in Web Admin, for example:
 
-```bash
-curl http://localhost:8080/health
+```text
+ws://192.168.1.10:8080/ws/voice
 ```
 
-Configure sherpa-onnx model paths in `tools/voice-proxy/docker-compose.yml`:
-
-```yaml
-SHERPA_ASR_PARAFORMER: /models/sherpa-onnx-paraformer-zh-2023-09-14/model.int8.onnx
-SHERPA_ASR_TOKENS: /models/sherpa-onnx-paraformer-zh-2023-09-14/tokens.txt
-SHERPA_TTS_MODEL: /models/vits-zh/model.onnx
-SHERPA_TTS_TOKENS: /models/vits-zh/tokens.txt
-SHERPA_TTS_DATA_DIR: /models/vits-zh/espeak-ng-data
-SHERPA_TTS_LEXICON: /models/vits-zh/lexicon.txt
-```
-
-If the proxy should call a non-official OpenAI-compatible API after STT, use:
-
-```yaml
-REPLY_MODE: openai-compatible
-OPENAI_BASE_URL: https://api.example.com/v1
-OPENAI_MODEL: your-model-name
-OPENAI_API_KEY: your-key
-```
-
-If your provider does not expose the standard `/chat/completions` path, set the
-full endpoint instead:
-
-```yaml
-OPENAI_CHAT_COMPLETIONS_URL: https://api.example.com/custom/chat
-```
-
-Run a push-to-talk style test from the ESP-Claw console or Web Lua runner.
-Replace `192.168.1.10` with the LAN IP of the machine running Docker:
+You can also run a push-to-talk bring-up test from the ESP-Claw console:
 
 ```lua
 lua --run --path /system/scripts/voice_stream_supermini.lua --args '{"uri":"ws://192.168.1.10:8080/ws/voice","record_ms":5000}'
 ```
 
-The current script records for `record_ms`, sends `listen/stop`, waits for TTS,
-and then exits. It is a bring-up test path; always-on VAD and wake-word handling
-are not implemented in this board profile yet.
+See `docs/ESP32_S3_SUPERMINI.md`, `docs/WIFI_ONBOARDING_AP.md`, and
+`docs/ESP32_S3_HARDWARE_VOICE.md` for more details.
